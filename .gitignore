@@ -90,3 +90,7 @@ coverage.xml
 # Secret files
 secrets/
 config/production.py
+
+NUL
+NUL/
+
