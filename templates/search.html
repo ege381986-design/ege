@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Arama - {{ query }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-search"></i> Arama Sonuçları
+            </h2>
+            
+            <!-- Arama Formu -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('search') }}">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" name="q" value="{{ query }}" placeholder="Kitap adı, yazar, ISBN veya yayınevi ara...">
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <select class="form-control" name="type">
+                                    <option value="all" {% if search_type == 'all' %}selected{% endif %}>Tümü</option>
+                                    <option value="books" {% if search_type == 'books' %}selected{% endif %}>Kitaplar</option>
+                                    {% if current_user.is_authenticated and current_user.role in ['admin', 'librarian'] %}
+                                    <option value="members" {% if search_type == 'members' %}selected{% endif %}>Üyeler</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i> Ara
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Gelişmiş Arama -->
+                    <div class="mt-3">
+                        <a href="#" data-bs-toggle="collapse" data-bs-target="#advancedSearch" aria-expanded="false" aria-controls="advancedSearch">
+                            <i class="bi bi-funnel"></i> Gelişmiş Arama
+                        </a>
+                        <div class="collapse mt-3" id="advancedSearch">
+                            <form id="advancedSearchForm">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="title" class="form-label">Kitap Adı</label>
+                                        <input type="text" class="form-control" id="title" name="title">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="author" class="form-label">Yazar</label>
+                                        <input type="text" class="form-control" id="author" name="author">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="publisher" class="form-label">Yayınevi</label>
+                                        <input type="text" class="form-control" id="publisher" name="publisher">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="year_from" class="form-label">Yayın Yılı (Başlangıç)</label>
+                                        <input type="number" class="form-control" id="year_from" name="year_from" min="1900" max="{{ current_year }}">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="year_to" class="form-label">Yayın Yılı (Bitiş)</label>
+                                        <input type="number" class="form-control" id="year_to" name="year_to" min="1900" max="{{ current_year }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="category" class="form-label">Kategori</label>
+                                        <select class="form-control" id="category" name="category">
+                                            <option value="">Tümü</option>
+                                            <option value="Roman">Roman</option>
+                                            <option value="Şiir">Şiir</option>
+                                            <option value="Hikaye">Hikaye</option>
+                                            <option value="Bilim">Bilim</option>
+                                            <option value="Tarih">Tarih</option>
+                                            <option value="Biyografi">Biyografi</option>
+                                            <option value="Çocuk">Çocuk</option>
+                                            <option value="Eğitim">Eğitim</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Durum</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="available_only" name="available_only">
+                                            <label class="form-check-label" for="available_only">
+                                                Sadece mevcut kitapları göster
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Gelişmiş Ara
+                                </button>
+                                <button type="reset" class="btn btn-secondary">
+                                    <i class="bi bi-x-circle"></i> Temizle
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sonuçlar -->
+            {% if query %}
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i>
+                "<strong>{{ query }}</strong>" için <strong>{{ results.total }}</strong> sonuç bulundu.
+            </div>
+            
+            <!-- Kitap Sonuçları -->
+            {% if results.books %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-book"></i> Kitaplar ({{ results.books|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for item in results.books %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <a href="{{ url_for('book_detail', isbn=item.book.isbn) }}" class="text-decoration-none">
+                                            {{ item.book.title }}
+                                        </a>
+                                    </h6>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <i class="bi bi-person"></i> {{ item.book.authors }}<br>
+                                            <i class="bi bi-building"></i> {{ item.book.publishers }}<br>
+                                            <i class="bi bi-calendar"></i> {{ item.book.publish_date }}
+                                        </small>
+                                    </p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-{{ 'success' if item.available > 0 else 'danger' }}">
+                                            {% if item.available > 0 %}
+                                            {{ item.available }} adet mevcut
+                                            {% else %}
+                                            Mevcut değil
+                                            {% endif %}
+                                        </span>
+                                        <a href="{{ url_for('book_detail', isbn=item.book.isbn) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> Detay
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Üye Sonuçları (Sadece admin/librarian) -->
+            {% if results.members and current_user.is_authenticated and current_user.role in ['admin', 'librarian'] %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people"></i> Üyeler ({{ results.members|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Ad Soyad</th>
+                                    <th>Sınıf</th>
+                                    <th>Numara</th>
+                                    <th>E-posta</th>
+                                    <th>Üye Türü</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for member in results.members %}
+                                <tr>
+                                    <td>{{ member.ad_soyad }}</td>
+                                    <td>{{ member.sinif }}</td>
+                                    <td>{{ member.numara }}</td>
+                                    <td>{{ member.email }}</td>
+                                    <td>{{ member.uye_turu }}</td>
+                                    <td>
+                                        <a href="/members/{{ member.id }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> Detay
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if results.total == 0 %}
+            <div class="alert alert-warning text-center">
+                <i class="bi bi-exclamation-triangle"></i>
+                Aramanızla eşleşen sonuç bulunamadı.
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i>
+                Aramak için yukarıdaki formu kullanın.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Gelişmiş arama formu
+document.getElementById('advancedSearchForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const criteria = {};
+    
+    for (let [key, value] of formData.entries()) {
+        if (value) {
+            criteria[key] = value;
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/search/advanced', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(criteria)
+        });
+        
+        const result = await response.json();
+        
+        if (result.books) {
+            // Sonuçları göster (sayfa yenileme veya dinamik güncelleme)
+            displayAdvancedSearchResults(result.books);
+        }
+    } catch (error) {
+        alert('Bir hata oluştu');
+    }
+});
+
+function displayAdvancedSearchResults(books) {
+    // Gelişmiş arama sonuçlarını göster
+    console.log('Gelişmiş arama sonuçları:', books);
+    alert(`${books.length} kitap bulundu. Sonuçlar konsola yazdırıldı.`);
+}
+
+// Mevcut yıl
+const currentYear = new Date().getFullYear();
+document.getElementById('year_from')?.setAttribute('max', currentYear);
+document.getElementById('year_to')?.setAttribute('max', currentYear);
+</script>
+{% endblock %}

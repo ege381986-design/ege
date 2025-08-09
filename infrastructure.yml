@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Library Management System Infrastructure'
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+    Default: library-key
+
+Resources:
+  # VPC
+  LibraryVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: Library-VPC
+
+  # Internet Gateway
+  LibraryIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Library-IGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LibraryVPC
+      InternetGatewayId: !Ref LibraryIGW
+
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LibraryVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Library-Public-Subnet
+
+  # Private Subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LibraryVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: Library-Private-Subnet
+
+  # Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LibraryVPC
+      Tags:
+        - Key: Name
+          Value: Library-Public-RT
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref LibraryIGW
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Groups
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web server
+      VpcId: !Ref LibraryVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: Library-Web-SG
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for database
+      VpcId: !Ref LibraryVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Library-DB-SG
+
+  # EC2 Instance
+  LibraryServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c94855ba95b798c7  # Ubuntu 22.04
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroupIds:
+        - !Ref WebSecurityGroup
+      SubnetId: !Ref PublicSubnet
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y python3 python3-pip python3-venv nginx git
+          
+          # Create user
+          useradd -m -s /bin/bash library
+          usermod -aG sudo library
+          
+          # Install application
+          cd /home/library
+          git clone https://github.com/yourusername/library-system.git
+          chown -R library:library library-system
+          
+      Tags:
+        - Key: Name
+          Value: Library-Server
+
+  # RDS Database
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS database
+      SubnetIds:
+        - !Ref PublicSubnet
+        - !Ref PrivateSubnet
+      Tags:
+        - Key: Name
+          Value: Library-DB-SubnetGroup
+
+  LibraryDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: library-db
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: '14.9'
+      MasterUsername: library
+      MasterUserPassword: YourSecurePassword123
+      AllocatedStorage: 20
+      DBName: library_db
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      StorageEncrypted: true
+      MultiAZ: false
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: Library-Database
+
+  # S3 Bucket
+  StaticFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'library-static-${AWS::AccountId}'
+      PublicReadPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${StaticFilesBucket}/*'
+
+Outputs:
+  WebsiteURL:
+    Description: URL of the website
+    Value: !Sub 'http://${LibraryServer.PublicDnsName}'
+  
+  DatabaseEndpoint:
+    Description: RDS Database Endpoint
+    Value: !GetAtt LibraryDatabase.Endpoint.Address 

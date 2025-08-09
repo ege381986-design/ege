@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Kütüphane Yönetim Sistemi{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+            <p class="text-muted">Kütüphane istatistikleri ve analizler</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">Toplam Kitap</h6>
+                    <h2 class="card-title mb-0">{{ stats.total_books }}</h2>
+                    <small>{{ stats.distinct_books }} farklı kitap</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">Aktif Üye</h6>
+                    <h2 class="card-title mb-0">{{ stats.active_members }}</h2>
+                    <small>{{ stats.new_members_month }} bu ay yeni</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">Ödünçte</h6>
+                    <h2 class="card-title mb-0">{{ stats.borrowed_books }}</h2>
+                    <small>{{ stats.overdue_books }} gecikmiş</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">Bu Ay İşlem</h6>
+                    <h2 class="card-title mb-0">{{ stats.monthly_transactions }}</h2>
+                    <small>{{ stats.daily_average }} günlük ortalama</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Son Aktiviteler</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        {% for activity in recent_activities %}
+                        <li class="list-group-item">
+                            <i class="bi bi-{{ activity.icon }}"></i> {{ activity.action }}
+                            <small class="text-muted d-block">{{ activity.details }}</small>
+                            <small class="text-muted">{{ activity.time_ago }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

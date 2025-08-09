@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Raporlar{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-file-earmark-bar-graph"></i> Raporlar
+            </h2>
+            
+            <!-- Tarih Filtresi -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('reports') }}">
+                        <div class="row align-items-end">
+                            <div class="col-md-4">
+                                <label for="start_date" class="form-label">Başlangıç Tarihi</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="end_date" class="form-label">Bitiş Tarihi</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-funnel"></i> Filtrele
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="exportReport()">
+                                    <i class="bi bi-download"></i> Raporu İndir
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- En Çok Ödünç Alınan Kitaplar -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-trophy"></i> En Çok Ödünç Alınan Kitaplar
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Kitap</th>
+                                            <th>Yazar</th>
+                                            <th>Sayı</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for book in most_borrowed %}
+                                        <tr>
+                                            <td>{{ loop.index }}</td>
+                                            <td>
+                                                <a href="{{ url_for('book_detail', isbn=book.isbn) }}" class="text-decoration-none">
+                                                    {{ book.title[:30] }}{% if book.title|length > 30 %}...{% endif %}
+                                                </a>
+                                            </td>
+                                            <td>{{ book.authors[:20] }}{% if book.authors|length > 20 %}...{% endif %}</td>
+                                            <td><span class="badge bg-primary">{{ book.borrow_count }}</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- En Aktif Üyeler -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-people-fill"></i> En Aktif Üyeler
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Üye</th>
+                                            <th>İşlem Sayısı</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for member in most_active %}
+                                        <tr>
+                                            <td>{{ loop.index }}</td>
+                                            <td>{{ member.ad_soyad }}</td>
+                                            <td><span class="badge bg-success">{{ member.transaction_count }}</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Grafikler -->
+            <div class="row">
+                <!-- Günlük İşlem Grafiği -->
+                <div class="col-md-8 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-graph-up"></i> Günlük İşlem Grafiği
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="dailyChart" height="100"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Kategori Dağılımı -->
+                <div class="col-md-4 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-pie-chart"></i> Kategori Dağılımı
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="categoryChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Özet İstatistikler -->
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Toplam İşlem</h5>
+                            <h2>{{ daily_stats|sum(attribute='count') }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Günlük Ortalama</h5>
+                            <h2>{{ "%.1f"|format(daily_stats|sum(attribute='count') / (daily_stats|length or 1)) }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Aktif Üye</h5>
+                            <h2>{{ most_active|length }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Popüler Kategori</h5>
+                            <h4>{{ category_stats[0].name if category_stats else 'N/A' }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Günlük işlem grafiği
+const dailyData = {
+    labels: [{% for stat in daily_stats %}'{{ stat.date }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+        label: 'İşlem Sayısı',
+        data: [{% for stat in daily_stats %}{{ stat.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+        borderColor: 'rgb(75, 192, 192)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        tension: 0.1
+    }]
+};
+
+const ctx1 = document.getElementById('dailyChart').getContext('2d');
+new Chart(ctx1, {
+    type: 'line',
+    data: dailyData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+// Kategori dağılımı grafiği
+const categoryData = {
+    labels: [{% for stat in category_stats %}'{{ stat.name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+        data: [{% for stat in category_stats %}{{ stat.book_count }}{% if not loop.last %},{% endif %}{% endfor %}],
+        backgroundColor: [
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(255, 205, 86, 0.8)',
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 159, 64, 0.8)'
+        ]
+    }]
+};
+
+const ctx2 = document.getElementById('categoryChart').getContext('2d');
+new Chart(ctx2, {
+    type: 'doughnut',
+    data: categoryData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Rapor indirme
+function exportReport() {
+    const params = new URLSearchParams({
+        start_date: document.getElementById('start_date').value,
+        end_date: document.getElementById('end_date').value,
+        format: 'pdf'
+    });
+    
+    window.location.href = `/api/reports/export?${params.toString()}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block title %}Sunucu Hatası{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-page">
+                <h1 class="display-1 fw-bold text-danger">500</h1>
+                <h2 class="mb-3">Sunucu Hatası</h2>
+                <p class="lead mb-4">
+                    Üzgünüz, bir sistem hatası oluştu. Lütfen daha sonra tekrar deneyin.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-house-fill me-2"></i>Ana Sayfa
+                    </a>
+                    <button onclick="location.reload()" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Sayfayı Yenile
+                    </button>
+                </div>
+                <hr class="my-4">
+                <div class="text-muted">
+                    <small>
+                        Hata devam ederse, lütfen sistem yöneticisiyle iletişime geçin.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-page {
+    padding: 2rem;
+}
+.display-1 {
+    font-size: 6rem;
+    color: #dc3545;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

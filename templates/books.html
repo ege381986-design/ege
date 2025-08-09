@@ -1,0 +1,520 @@
+{% extends "base.html" %}
+
+{% block title %}Kitaplar - Kütüphane Yönetim Sistemi{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Başlık ve Butonlar -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-book"></i> Kitap Yönetimi</h2>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="showAddBookModal()">
+                        <i class="bi bi-plus-circle"></i> Yeni Kitap
+                    </button>
+                    <button class="btn btn-primary" onclick="showFetchBooksModal()">
+                        <i class="bi bi-search"></i> ISBN ile Getir
+                    </button>
+                    <button class="btn btn-info" onclick="showImportModal()">
+                        <i class="bi bi-upload"></i> Excel Yükle
+                    </button>
+                    <button class="btn btn-warning" onclick="exportBooks()">
+                        <i class="bi bi-download"></i> Excel İndir
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Arama ve Filtreler -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="bookSearch" 
+                                       placeholder="Kitap adı, yazar veya ISBN ara...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="categoryFilter">
+                                <option value="">Tüm Kategoriler</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="statusFilter">
+                                <option value="">Tüm Durumlar</option>
+                                <option value="available">Mevcut</option>
+                                <option value="borrowed">Ödünç Verilmiş</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kitap Listesi -->
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3 gap-2">
+                        <a href="/api/books/qr-bulk" class="btn btn-outline-secondary" target="_blank">
+                            <i class="bi bi-qr-code"></i> Tüm Kitaplar QR
+                        </a>
+                        <button id="bulkQrBtn" class="btn btn-secondary" type="button">
+                            <i class="bi bi-qr-code"></i> Seçili Olanlar İçin QR Bas
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAllBooks"></th>
+                                    <th>ISBN</th>
+                                    <th>Kitap Adı</th>
+                                    <th>Yazar</th>
+                                    <th>Yayınevi</th>
+                                    <th>Mevcut</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="booksTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Yükleniyor...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Sayfalama -->
+                    <div id="booksPagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yeni Kitap Ekleme Modal -->
+<div class="modal fade" id="addBookModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Kitap Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addBookForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="addBookISBN" class="form-label">ISBN *</label>
+                            <input type="text" class="form-control" id="addBookISBN" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="addBookTitle" class="form-label">Kitap Adı *</label>
+                            <input type="text" class="form-control" id="addBookTitle" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="addBookAuthors" class="form-label">Yazar(lar) *</label>
+                            <input type="text" class="form-control" id="addBookAuthors" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="addBookPublishers" class="form-label">Yayınevi</label>
+                            <input type="text" class="form-control" id="addBookPublishers">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="addBookPublishDate" class="form-label">Yayın Yılı</label>
+                            <input type="text" class="form-control" id="addBookPublishDate" placeholder="2023">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="addBookPages" class="form-label">Sayfa Sayısı</label>
+                            <input type="number" class="form-control" id="addBookPages" min="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="addBookLanguages" class="form-label">Dil</label>
+                            <input type="text" class="form-control" id="addBookLanguages" value="Türkçe">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="addBookQuantity" class="form-label">Adet *</label>
+                            <input type="number" class="form-control" id="addBookQuantity" value="1" min="1" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="addBookShelf" class="form-label">Raf</label>
+                            <input type="text" class="form-control" id="addBookShelf" placeholder="A-1">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="addBookCupboard" class="form-label">Dolap</label>
+                            <input type="text" class="form-control" id="addBookCupboard" placeholder="1">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Kaydet
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Kitap Düzenleme Modal -->
+<div class="modal fade" id="editBookModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kitap Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editBookForm">
+                <input type="hidden" id="editBookISBN">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ISBN</label>
+                            <input type="text" class="form-control" id="editBookISBNDisplay" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editBookTitle" class="form-label">Kitap Adı *</label>
+                            <input type="text" class="form-control" id="editBookTitle" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editBookAuthors" class="form-label">Yazar(lar) *</label>
+                            <input type="text" class="form-control" id="editBookAuthors" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editBookPublishers" class="form-label">Yayınevi</label>
+                            <input type="text" class="form-control" id="editBookPublishers">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editBookPublishDate" class="form-label">Yayın Yılı</label>
+                            <input type="text" class="form-control" id="editBookPublishDate">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editBookPages" class="form-label">Sayfa Sayısı</label>
+                            <input type="number" class="form-control" id="editBookPages" min="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editBookLanguages" class="form-label">Dil</label>
+                            <input type="text" class="form-control" id="editBookLanguages">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editBookQuantity" class="form-label">Adet *</label>
+                            <input type="number" class="form-control" id="editBookQuantity" min="1" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editBookShelf" class="form-label">Raf</label>
+                            <input type="text" class="form-control" id="editBookShelf">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editBookCupboard" class="form-label">Dolap</label>
+                            <input type="text" class="form-control" id="editBookCupboard">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Güncelle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ISBN ile Kitap Getirme Modal -->
+<div class="modal fade" id="fetchBooksModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ISBN ile Kitap Bilgisi Getir</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="fetchISBNs" class="form-label">ISBN Numaraları (her satıra bir tane)</label>
+                    <textarea class="form-control" id="fetchISBNs" rows="5" 
+                              placeholder="9789750719387&#10;9786053753742&#10;9789756525265"></textarea>
+                </div>
+                <button type="button" class="btn btn-primary mb-3" onclick="fetchBooks()">
+                    <i class="bi bi-search"></i> Bilgileri Getir
+                </button>
+                
+                <div id="fetchedBooksTable" style="display:none;">
+                    <h6>Bulunan Kitaplar:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>ISBN</th>
+                                    <th>Başlık</th>
+                                    <th>Yazar</th>
+                                    <th>İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fetchedBooksBody"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-success mt-2" onclick="saveAllFetchedBooks()">
+                        <i class="bi bi-save"></i> Tümünü Kaydet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Excel İçe Aktarma Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Excel'den Kitap Yükle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importForm">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Excel Formatı:</strong><br>
+                        ISBN | Başlık | Yazar | Yayın Yılı | Sayfa Sayısı | Yayınevi | Diller | Adet | Raf | Dolap
+                    </div>
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">Excel Dosyası Seçin</label>
+                        <input type="file" class="form-control" id="importFile" accept=".xlsx,.xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Yükle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Sayfa yüklendiğinde çalışacak kod - OPTİMİZE EDİLMİŞ
+$(document).ready(function() {
+    console.log('📚 Kitap sayfası yükleniyor...');
+    
+    // Kitapları yükle - async olarak
+    setTimeout(function() {
+        if (typeof loadBooks === 'function') {
+            loadBooks(1);
+        }
+    }, 100);
+    
+    // Event listener'ları ekle - basit
+    $('#categoryFilter, #statusFilter').on('change', function() {
+        if (typeof loadBooks === 'function') {
+            loadBooks(1);
+        }
+    });
+    
+    console.log('✅ Kitap sayfası hazır');
+});
+
+// Modal fonksiyonları - Basit versiyon
+function showAddBookModal() {
+    $('#addBookModal').modal('show');
+}
+
+function showFetchBooksModal() {
+    $('#fetchISBNs').val('');
+    $('#fetchedBooksTable').hide();
+    $('#fetchBooksModal').modal('show');
+}
+
+function showImportModal() {
+    $('#importFile').val('');
+    $('#importModal').modal('show');
+}
+
+// Fetch books function - inline
+function fetchBooks() {
+    const isbns = $('#fetchISBNs').val().split('\n').map(isbn => isbn.trim()).filter(isbn => isbn);
+    
+    if (isbns.length === 0) {
+        showToast('Lütfen en az bir ISBN girin', 'warning');
+        return;
+    }
+    
+    $.ajax({
+        url: '/api/books/fetch',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ isbns: isbns }),
+        success: function(response) {
+            displayFetchedBooks(response.books);
+            $('#fetchedBooksTable').show();
+        },
+        error: function() {
+            showToast('Kitap bilgileri alınırken hata oluştu', 'error');
+        }
+    });
+}
+
+// Display fetched books - inline
+function displayFetchedBooks(books) {
+    const tbody = $('#fetchedBooksBody');
+    tbody.empty();
+    window.fetchedBooks = books; // Global'e kaydet
+    
+    books.forEach((book, index) => {
+        const actionButton = book.error ? 
+            '<span class="text-danger">Bilgi bulunamadı</span>' :
+            `<button class="btn btn-sm btn-success" onclick="saveFetchedBook(${index})">Kaydet</button>`;
+            
+        tbody.append(`
+            <tr>
+                <td><code>${book.isbn}</code></td>
+                <td>${book.title}</td>
+                <td>${book.authors}</td>
+                <td>${actionButton}</td>
+            </tr>
+        `);
+    });
+}
+
+// Save fetched book - inline
+function saveFetchedBook(index) {
+    const book = window.fetchedBooks[index];
+    
+    $.ajax({
+        url: '/api/books/add',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(book),
+        success: function() {
+            showToast(`"${book.title}" kaydedildi`, 'success');
+            window.fetchedBooks.splice(index, 1);
+            displayFetchedBooks(window.fetchedBooks);
+            if (typeof loadBooks === 'function') {
+                loadBooks(currentBookPage);
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.message || 'Kaydetme hatası', 'error');
+        }
+    });
+}
+
+// Save all fetched books - inline
+function saveAllFetchedBooks() {
+    const validBooks = window.fetchedBooks.filter(book => !book.error);
+    
+    if (validBooks.length === 0) {
+        showToast('Kaydedilecek geçerli kitap yok', 'warning');
+        return;
+    }
+    
+    if (confirm(`${validBooks.length} kitabı kaydetmek istediğinizden emin misiniz?`)) {
+        let saved = 0;
+        let errors = 0;
+        
+        validBooks.forEach((book, index) => {
+            $.ajax({
+                url: '/api/books/add',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(book),
+                success: function() {
+                    saved++;
+                    if (saved + errors === validBooks.length) {
+                        showToast(`${saved} kitap kaydedildi`, 'success');
+                        $('#fetchBooksModal').modal('hide');
+                        if (typeof loadBooks === 'function') {
+                            loadBooks(1);
+                        }
+                    }
+                },
+                error: function() {
+                    errors++;
+                    if (saved + errors === validBooks.length) {
+                        showToast(`${saved} kitap kaydedildi, ${errors} hata`, 'warning');
+                    }
+                }
+            });
+        });
+    }
+}
+
+// Export books - inline
+function exportBooks() {
+    const link = document.createElement('a');
+    link.href = '/api/export/books';
+    link.download = `kitaplar_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+    showToast('Excel dosyası indiriliyor...', 'success');
+}
+
+// Import books - inline
+function importBooks() {
+    const fileInput = $('#importFile')[0];
+    
+    if (!fileInput.files.length) {
+        showToast('Lütfen bir dosya seçin', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    $.ajax({
+        url: '/api/import/books',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            showToast(response.message, 'success');
+            $('#importModal').modal('hide');
+            if (typeof loadBooks === 'function') {
+                loadBooks(1);
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.message || 'İçe aktarma hatası', 'error');
+        }
+    });
+}
+
+$(function() {
+    $('#selectAllBooks').on('change', function() {
+        $('.book-checkbox').prop('checked', this.checked);
+    });
+    $('#bulkQrBtn').on('click', function() {
+        const selected = $('.book-checkbox:checked').map(function(){return this.value;}).get();
+        if(selected.length === 0) {
+            showToast('Lütfen en az bir kitap seçin', 'warning');
+            return;
+        }
+        // PDF indirmek için POST ile veri gönder
+        const form = $('<form>', {method: 'POST', action: '/api/books/qr-bulk', target: '_blank'});
+        $('<input>', {type: 'hidden', name: 'isbns', value: JSON.stringify(selected)}).appendTo(form);
+        form.appendTo('body').submit().remove();
+    });
+    $('#bulkPdfBtn').on('click', function() {
+        const selected = $('.book-checkbox:checked').map(function(){return this.value;}).get();
+        if(selected.length === 0) {
+            showToast('Lütfen en az bir kitap seçin', 'warning');
+            return;
+        }
+        // PDF indirmek için POST ile veri gönder
+        const form = $('<form>', {method: 'POST', action: '/api/books/pdf-bulk', target: '_blank'});
+        $('<input>', {type: 'hidden', name: 'isbns', value: JSON.stringify(selected)}).appendTo(form);
+        form.appendTo('body').submit().remove();
+    });
+});
+</script>
+{% endblock %}

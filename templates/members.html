@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+
+{% block title %}Üyeler - Kütüphane Yönetim Sistemi{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Başlık ve Butonlar -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-people"></i> Üye Yönetimi</h2>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="showAddMemberModal()">
+                        <i class="bi bi-person-plus"></i> Yeni Üye
+                    </button>
+                    <button class="btn btn-info" onclick="showImportMemberModal()">
+                        <i class="bi bi-upload"></i> Excel Yükle
+                    </button>
+                    <button class="btn btn-warning" onclick="exportMembers()">
+                        <i class="bi bi-download"></i> Excel İndir
+                    </button>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end mb-3 gap-2">
+                <a href="/api/members/qr-bulk" class="btn btn-outline-secondary" target="_blank">
+                    <i class="bi bi-qr-code"></i> Toplu QR Bas
+                </a>
+                <button id="bulkQrBtn" class="btn btn-secondary" type="button">
+                    <i class="bi bi-qr-code"></i> Seçili Olanlar İçin QR Bas
+                </button>
+            </div>
+            
+            <!-- Arama ve Filtreler -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="memberSearch" 
+                                       placeholder="Ad soyad, numara veya sınıf ara...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="classFilter">
+                                <option value="">Tüm Sınıflar</option>
+                                <option value="9">9. Sınıf</option>
+                                <option value="10">10. Sınıf</option>
+                                <option value="11">11. Sınıf</option>
+                                <option value="12">12. Sınıf</option>
+                                <option value="Mezun">Mezun</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="typeFilter">
+                                <option value="">Tüm Türler</option>
+                                <option value="Öğrenci">Öğrenci</option>
+                                <option value="Öğretmen">Öğretmen</option>
+                                <option value="Personel">Personel</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Üye Listesi -->
+            <div class="card mt-4">
+                <ul class="nav nav-tabs" id="memberTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="members-tab" data-bs-toggle="tab" data-bs-target="#members" type="button" role="tab">Üyeler</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="penalized-tab" data-bs-toggle="tab" data-bs-target="#penalized" type="button" role="tab">Cezalılar</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">Gecikmişler</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="memberTabsContent">
+                    <div class="tab-pane fade show active" id="members" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Ad Soyad</th>
+                                    <th>Sınıf</th>
+                                    <th>Numara</th>
+                                    <th>E-posta</th>
+                                    <th>Üye Türü</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="membersTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Yükleniyor...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Sayfalama -->
+                    <div id="membersPagination"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="penalized" role="tabpanel">
+                        <div class="d-flex justify-content-end mb-3">
+                            <!-- Removed Excel export button -->
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ad Soyad</th>
+                                        <th>Numara</th>
+                                        <th>Sınıf</th>
+                                        <th>E-posta</th>
+                                        <th>Ceza Bitiş</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="penalizedTableBody">
+                                    <!-- Cezalılar JS ile yüklenecek -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="overdue" role="tabpanel">
+                        <div class="d-flex justify-content-end mb-3">
+                            <!-- Removed Excel export button -->
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ad Soyad</th>
+                                        <th>Numara</th>
+                                        <th>Sınıf</th>
+                                        <th>E-posta</th>
+                                        <th>Gecikmiş Kitap</th>
+                                        <th>Son Teslim</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="overdueTableBody">
+                                    <!-- Gecikmişler JS ile yüklenecek -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yeni Üye Ekleme Modal -->
+<div class="modal fade" id="addMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Üye Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addMemberForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="addMemberName" class="form-label">Ad Soyad *</label>
+                            <input type="text" class="form-control" id="addMemberName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="addMemberClass" class="form-label">Sınıf</label>
+                            <select class="form-select" id="addMemberClass">
+                                <option value="">Seçiniz</option>
+                                <option value="9-A">9-A</option>
+                                <option value="9-B">9-B</option>
+                                <option value="9-C">9-C</option>
+                                <option value="9-D">9-D</option>
+                                <option value="10-A">10-A</option>
+                                <option value="10-B">10-B</option>
+                                <option value="10-C">10-C</option>
+                                <option value="10-D">10-D</option>
+                                <option value="11-A">11-A</option>
+                                <option value="11-B">11-B</option>
+                                <option value="11-C">11-C</option>
+                                <option value="11-D">11-D</option>
+                                <option value="12-A">12-A</option>
+                                <option value="12-B">12-B</option>
+                                <option value="12-C">12-C</option>
+                                <option value="12-D">12-D</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="addMemberNumber" class="form-label">Okul Numarası *</label>
+                            <input type="text" class="form-control" id="addMemberNumber" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="addMemberEmail" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="addMemberEmail">
+                        </div>
+                        <div class="col-12">
+                            <label for="addMemberType" class="form-label">Üye Türü</label>
+                            <select class="form-select" id="addMemberType">
+                                <option value="Öğrenci">Öğrenci</option>
+                                <option value="Öğretmen">Öğretmen</option>
+                                <option value="Personel">Personel</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Kaydet
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Üye Düzenleme Modal -->
+<div class="modal fade" id="editMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Üye Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editMemberForm">
+                <input type="hidden" id="editMemberId">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="editMemberName" class="form-label">Ad Soyad *</label>
+                            <input type="text" class="form-control" id="editMemberName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editMemberClass" class="form-label">Sınıf</label>
+                            <select class="form-select" id="editMemberClass">
+                                <option value="">Seçiniz</option>
+                                <option value="9-A">9-A</option>
+                                <option value="9-B">9-B</option>
+                                <option value="9-C">9-C</option>
+                                <option value="9-D">9-D</option>
+                                <option value="10-A">10-A</option>
+                                <option value="10-B">10-B</option>
+                                <option value="10-C">10-C</option>
+                                <option value="10-D">10-D</option>
+                                <option value="11-A">11-A</option>
+                                <option value="11-B">11-B</option>
+                                <option value="11-C">11-C</option>
+                                <option value="11-D">11-D</option>
+                                <option value="12-A">12-A</option>
+                                <option value="12-B">12-B</option>
+                                <option value="12-C">12-C</option>
+                                <option value="12-D">12-D</option>
+                                <option value="Mezun">Mezun</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editMemberNumber" class="form-label">Okul Numarası *</label>
+                            <input type="text" class="form-control" id="editMemberNumber" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="editMemberEmail" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="editMemberEmail">
+                        </div>
+                        <div class="col-12">
+                            <label for="editMemberType" class="form-label">Üye Türü</label>
+                            <select class="form-select" id="editMemberType">
+                                <option value="Öğrenci">Öğrenci</option>
+                                <option value="Öğretmen">Öğretmen</option>
+                                <option value="Personel">Personel</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Güncelle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Excel İçe Aktarma Modal -->
+<div class="modal fade" id="importMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Excel'den Üye Yükle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importMemberForm">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Excel Formatı:</strong><br>
+                        ad_soyad | sinif | numara | email | uye_turu
+                    </div>
+                    <div class="mb-3">
+                        <label for="importMemberFile" class="form-label">Excel Dosyası Seçin</label>
+                        <input type="file" class="form-control" id="importMemberFile" accept=".xlsx,.xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Yükle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Sayfa yüklendiğinde çalışacak kod - OPTİMİZE EDİLMİŞ
+$(document).ready(function() {
+    console.log('👥 Üye sayfası yükleniyor...');
+    
+    // Üyeleri yükle - async olarak
+    setTimeout(function() {
+        if (typeof loadMembers === 'function') {
+            loadMembers(1);
+        }
+    }, 100);
+    
+    // Event listener'ları ekle - basit
+    $('#classFilter, #typeFilter').on('change', function() {
+        if (typeof loadMembers === 'function') {
+            loadMembers(1);
+        }
+    });
+    
+    console.log('✅ Üye sayfası hazır');
+});
+
+// Modal fonksiyonları
+function showAddMemberModal() {
+    $('#addMemberModal').modal('show');
+}
+
+function showImportMemberModal() {
+    $('#importMemberFile').val('');
+    $('#importMemberModal').modal('show');
+}
+
+// Üye ekleme - inline
+function addMember() {
+    const data = {
+        ad_soyad: $('#addMemberName').val(),
+        sinif: $('#addMemberClass').val(),
+        numara: $('#addMemberNumber').val(),
+        email: $('#addMemberEmail').val(),
+        uye_turu: $('#addMemberType').val()
+    };
+    
+    if (!data.ad_soyad || !data.numara) {
+        showToast('Ad soyad ve numara gerekli', 'warning');
+        return;
+    }
+    
+    $.ajax({
+        url: '/api/members',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            showToast('Üye eklendi', 'success');
+            $('#addMemberModal').modal('hide');
+            $('#addMemberForm')[0].reset();
+            if (typeof loadMembers === 'function') {
+                loadMembers(currentMemberPage || 1);
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.message || 'Ekleme hatası', 'error');
+        }
+    });
+}
+
+// Üye düzenleme - inline
+function editMember(id) {
+    $.ajax({
+        url: `/api/members/${id}`,
+        method: 'GET',
+        timeout: 2000,
+        success: function(member) {
+            $('#editMemberId').val(member.id);
+            $('#editMemberName').val(member.ad_soyad);
+            $('#editMemberClass').val(member.sinif);
+            $('#editMemberNumber').val(member.numara);
+            $('#editMemberEmail').val(member.email);
+            $('#editMemberType').val(member.uye_turu);
+            
+            $('#editMemberModal').modal('show');
+        },
+        error: function() {
+            showToast('Üye bilgileri alınamadı', 'error');
+        }
+    });
+}
+
+// Üye güncelleme - inline
+function updateMember() {
+    const id = $('#editMemberId').val();
+    const data = {
+        ad_soyad: $('#editMemberName').val(),
+        sinif: $('#editMemberClass').val(),
+        numara: $('#editMemberNumber').val(),
+        email: $('#editMemberEmail').val(),
+        uye_turu: $('#editMemberType').val()
+    };
+    
+    if (!data.ad_soyad || !data.numara) {
+        showToast('Ad soyad ve numara gerekli', 'warning');
+        return;
+    }
+    
+    $.ajax({
+        url: `/api/members/${id}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            showToast('Üye güncellendi', 'success');
+            $('#editMemberModal').modal('hide');
+            if (typeof loadMembers === 'function') {
+                loadMembers(currentMemberPage || 1);
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.message || 'Güncelleme hatası', 'error');
+        }
+    });
+}
+
+// Export üyeler - inline
+function exportMembers() {
+    const link = document.createElement('a');
+    link.href = '/api/export/members';
+    link.download = `uyeler_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+    showToast('Excel dosyası indiriliyor...', 'success');
+}
+
+// Import üyeler - inline
+function importMembers() {
+    const fileInput = $('#importMemberFile')[0];
+    
+    if (!fileInput.files.length) {
+        showToast('Lütfen bir dosya seçin', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    $.ajax({
+        url: '/api/import/members',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            showToast(response.message, 'success');
+            $('#importMemberModal').modal('hide');
+            if (typeof loadMembers === 'function') {
+                loadMembers(1);
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.message || 'İçe aktarma hatası', 'error');
+        }
+    });
+}
+
+$('#bulkPdfBtn').on('click', function() {
+    const selected = $('.member-checkbox:checked').map(function(){return this.value;}).get();
+    if(selected.length === 0) {
+        showToast('Lütfen en az bir üye seçin', 'warning');
+        return;
+    }
+    // PDF indirmek için POST ile veri gönder
+    const form = $('<form>', {method: 'POST', action: '/api/members/pdf-bulk', target: '_blank'});
+    $('<input>', {type: 'hidden', name: 'ids', value: JSON.stringify(selected)}).appendTo(form);
+    form.appendTo('body').submit().remove();
+});
+
+// Cezalılar ve gecikmişler tablosunu yükle
+function loadPenalizedMembers() {
+    $.get('/api/members/penalized', function(data) {
+        const tbody = $('#penalizedTableBody');
+        tbody.empty();
+        if (!data.members || data.members.length === 0) {
+            tbody.html('<tr><td colspan="5" class="text-center text-muted">Cezalı üye yok</td></tr>');
+            return;
+        }
+        data.members.forEach(m => {
+            tbody.append(`<tr>
+                <td>${m.ad_soyad}</td>
+                <td>${m.numara}</td>
+                <td>${m.sinif}</td>
+                <td>${m.email}</td>
+                <td>${m.penalty_until ? m.penalty_until.split('T')[0] : ''}</td>
+            </tr>`);
+        });
+    });
+}
+function loadOverdueMembers() {
+    $.get('/api/members/overdue', function(data) {
+        const tbody = $('#overdueTableBody');
+        tbody.empty();
+        if (!data.members || data.members.length === 0) {
+            tbody.html('<tr><td colspan="6" class="text-center text-muted">Gecikmiş üye yok</td></tr>');
+            return;
+        }
+        data.members.forEach(m => {
+            tbody.append(`<tr>
+                <td>${m.ad_soyad}</td>
+                <td>${m.numara}</td>
+                <td>${m.sinif}</td>
+                <td>${m.email}</td>
+                <td>${m.book_title}</td>
+                <td>${m.due_date}</td>
+            </tr>`);
+        });
+    });
+}
+$('#penalized-tab').on('shown.bs.tab', loadPenalizedMembers);
+$('#overdue-tab').on('shown.bs.tab', loadOverdueMembers);
+</script>
+{% endblock %}

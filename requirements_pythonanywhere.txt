@@ -1,0 +1,38 @@
+# PythonAnywhere için Requirements.txt
+# Temel Flask bileşenleri
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.2
+Flask-Mail==0.9.1
+Flask-WTF==1.1.1
+Werkzeug==2.3.7
+
+# Veri işleme
+pandas==2.0.3
+numpy==1.24.3
+requests==2.31.0
+openpyxl==3.1.2
+
+# QR kod ve görüntü işleme
+qrcode==7.4.2
+Pillow==10.0.0
+
+# PDF ve rapor oluşturma
+reportlab==4.0.4
+python-barcode==0.15.1
+matplotlib==3.7.2
+seaborn==0.12.2
+
+# Güvenlik
+python-dotenv==1.0.0
+
+# Diğer yardımcı kütüphaneler
+jinja2==3.1.2
+itsdangerous==2.1.2
+click==8.1.7
+blinker==1.6.2
+MarkupSafe==2.1.3
+
+# Veritabanı (SQLite varsayılan olarak Python ile gelir)
+# PostgreSQL kullanmak isterseniz:
+# psycopg2-binary==2.9.7
